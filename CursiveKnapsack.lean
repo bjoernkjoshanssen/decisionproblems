@@ -377,20 +377,6 @@ Solution_of j → Solution_of (KI_of_CI j) :=
   }
 }
 
--- theorem trys (j : CursiveWalk.Instance) (wpair : Solution_of j):
---   wpair.1 = (cast
---     (by {rw [inverses2]} :
---       { val // DecisionProblem.Solution CursiveWalk { fst := CI_of_KI (KI_of_CI j), snd := val } } =
---         { val // DecisionProblem.Solution CursiveWalk { fst := j, snd := val } })
---     { val := walk_' (KI_of_CI j).wt (getk1'' j wpair),
---       property :=
---         ((by {
---           rw[inverses2]; let H := getk2'' j wpair; have : j.cycleLength = (KI_of_CI j).wt := rfl
---           rw [← this,← H]; exact wpair.2
---         }) :
---           (fun val => DecisionProblem.Solution CursiveWalk { fst := CI_of_KI (KI_of_CI j), snd := val })
---             (walk_' (KI_of_CI j).wt (getk1'' j wpair))) }).1
--- := sorry
 
 
 theorem inspired_by_dillies {α β: Type} (u₁ u₂ : β) {P : β → α → Prop} (a:α) (h₁ : P u₁ a) (h₂ : P u₂ a) (hu : u₁ = u₂)
@@ -447,6 +433,7 @@ wpair.1 = (Eq.mp
 --  CS_of_KS (KI_of_CI j) = Function.invFun (KS_of_CS j) := sorry
 
 
+
 theorem inverses (j : CursiveWalk.Instance) (wpair : Solution_of j):
 -- December 31, 2023.
  -- We first want to prove: CS_of_KS (KI_of_CI j) (KS_of_CS j wpair) = wpair, but that's not type-hygienic so we do:
@@ -465,7 +452,13 @@ wpair = Eq.mp
     exact inverses_dot1 _ _
 }
 
-theorem inverses''  : -- ci is a CursiveWalk.Instance but we don't have to say that!
+-- theorem KS_CS_inverses' (j : CursiveWalk.Instance) [Nonempty (Solution_of j)]:
+--   CS_of_KS (KI_of_CI j) = Function.invFun (KS_of_CS j)
+--   := sorry
+-- requires some cast work to be stated, like theorem "invers`es"
+
+
+theorem inverses'' (ci : CursiveWalk.Instance)  : -- ci is a CursiveWalk.Instance but we don't have to say that!
 id = λ cs ↦ Eq.mp (congr_arg _ (inverses2 _)) (CS_of_KS (KI_of_CI ci) (KS_of_CS ci cs))
   := by {
     apply funext
@@ -474,10 +467,27 @@ id = λ cs ↦ Eq.mp (congr_arg _ (inverses2 _)) (CS_of_KS (KI_of_CI ci) (KS_of_
   }
 
 
-axiom c : Σ i : ℕ, Fin i
-#check c.fst
-#check c.snd
 
+theorem KS_of_CS_surjective
+  (i:CursiveWalk.Instance) :
+  Function.Surjective (KS_of_CS i)
+  := by {
+  intro s
+  unfold Solution_of at s
+  -- let Q := inverses'' i
+  let t := CS_of_KS (KI_of_CI i) s
+
+
+
+
+  -- have : t = CS_of_KS (KI_of_CI i) s := rfl
+  rw [inverses2] at t
+
+  have : t = Eq.mp (congr_arg _ (inverses2 _)) (CS_of_KS (KI_of_CI i) (KS_of_CS i t)) :=
+    inverses _ _
+
+  sorry
+  }
 
 theorem CS_of_KS_surjective
   (i:Knapsack2.Instance) :
@@ -485,8 +495,6 @@ theorem CS_of_KS_surjective
   := by {
   unfold Function.Surjective
   intro wpair
-
-  -- use KS_of_CS instead?
   let ⟨hw,hT⟩ := wpair.2;
   let k := getk1' i.wt hw hT
 
@@ -581,8 +589,44 @@ theorem CI_of_KI_injective : Function.Injective CI_of_KI := by {
   exact congr_arg KI_of_CI h
 }
 
-theorem KS_of_CS_injective : ∀ (i : CursiveWalk.Instance), Function.Injective fun s => KS_of_CS i s
-:= sorry -- similar to CS_of_KS_injective
+theorem KS_of_CS_injective :
+  ∀ (j : CursiveWalk.Instance), Function.Injective fun s => KS_of_CS j s
+  := by {
+    intro j s₁ s₂ hs
+    simp at hs
+    let G₁ := inverses j s₁
+    let G₂ := inverses j s₂
+    rw [G₁,G₂,hs]
+  }
+
+theorem inverses_rev (j : Knapsack2.Instance) (s : Solution_of j):
+s =
+  (KS_of_CS (CI_of_KI j) (CS_of_KS j s))
+:= by {
+    unfold Solution_of at s
+    let Q := KS_of_CS_surjective (CI_of_KI j) s
+    rcases Q with ⟨wpair,hwpair⟩
+    rw [← hwpair]
+    have : wpair = (CS_of_KS j (KS_of_CS (CI_of_KI j) wpair)) := inverses _ _
+    exact congr_arg _ this
+}
+
+theorem KS_CS_inverses (j : Knapsack2.Instance) [Nonempty (Solution_of j)]:
+  KS_of_CS (CI_of_KI j) = Function.invFun (CS_of_KS j)
+  :=
+  by {
+    unfold Function.invFun
+    apply funext
+    intro s
+    have h : ∃ x, CS_of_KS j x = s := CS_of_KS_surjective j s
+    rw [dif_pos (CS_of_KS_surjective j s)]
+    let P := (λ x ↦ CS_of_KS j x = s)
+    have : P (Exists.choose h) := Exists.choose_spec _
+    have : CS_of_KS j (Exists.choose h) = s := this
+    let H := inverses_rev j (Exists.choose h)
+    rw [H]
+    simp_rw [this]
+  }
 
 
 theorem jointly_inductive_specific :
